@@ -29,8 +29,11 @@ function setup() {
 	//imageMode(CENTER);
 	createCanvas(windowWidth, windowHeight);
 	pixelDensity(1);
+	//video used for live video processing
 	video = createCapture(VIDEO);
+	//videoAI used for poseNet
 	videoAI = createCapture(VIDEO);
+	//vScale to scale down the original video, improve performance
 	video.size(width / vScale, height / vScale);
 	videoAI.size(Vwidth / 2, Vheight / 2);
 	// Create a new poseNet method with a single detection
@@ -51,9 +54,13 @@ function modelReady() {
 
 function draw() {
 	background(255);
+	drawKeypoints();
+	//get distance between left eye and right eye, the distance is bigger if the user is closer to the camera
 	eyeDist = dist(LeyeX, LeyeY, ReyeX, ReyeY);
 	thred = map(eyeDist, minEyeDist, maxEyeDist, maxColDist, minColDist);
 	thred = constrain(thred, 30, 900);
+
+	//live video processing: find edges.
 	if (video.loadedmetadata) {
 		video.loadPixels();
 		loadPixels();
@@ -76,6 +83,8 @@ function draw() {
 
 					}
 				}
+				//using colordifference between every pixel and it's neighbor, to find edge and give different color
+				//to improve the performance, using size of ellpise to present edges in a lower resolution.
 				if (colorDifference > thred) {
 					fill(0);
 					noStroke();
@@ -91,16 +100,9 @@ function draw() {
 				}
 			}
 		}
-		//updatePixels();
-		//console.log(mouseX);
+
 	}
-	//image(videoAI, 0, 0, Vwidth / 2, Vheight / 2);
 
-	//console.log(mouseX);
-	// We can call both functions to draw all keypoints and the skeletons
-	drawKeypoints();
-
-	//	drawSkeleton();
 }
 
 // A function to draw ellipses over the detected keypoints
@@ -109,15 +111,15 @@ function drawKeypoints() {
 	for (let i = 0; i < poses.length; i++) {
 		// For each pose detected, loop through all the keypoints
 		let pose = poses[0].pose;
+		//I need left eye, right eye, nose position
 		let Leye = pose.keypoints[1];
 		let Reye = pose.keypoints[2];
 		let nose = pose.keypoints[0];
-		//console.log(pose);
+		// Only process point which the pose probability is bigger than 0.2(score)
 		if (Leye.score > score) {
 			fill(0),
 				noStroke();
-			//noseX = smooth(NoseArrayX, 8, nose.position.x);
-			//console.log(noseX);
+			//push left eye x,y value into an 8 unit array, to smooth out the value.
 			LeyeArrayX.push(Leye.position.x);
 			if (LeyeArrayX.length > 8) {
 				LeyeArrayX.shift();
@@ -128,9 +130,8 @@ function drawKeypoints() {
 				LeyeArrayY.shift();
 				LeyeY = average(LeyeArrayY);
 			}
-			//ellipse(LeyeX, LeyeY, 10, 10);
-			//console.log(noseX)
 		}
+		//push right eye x,y value into an 8 unit array, to smooth out the value.
 		if (Reye.score > score) {
 			fill(255, 0, 0),
 				noStroke();
@@ -144,8 +145,9 @@ function drawKeypoints() {
 				ReyeArrayY.shift();
 				ReyeY = average(ReyeArrayY);
 			}
-			//ellipse(ReyeX, ReyeY, 10, 10);
+
 		}
+		//push nose x,y value into an 8 unit array, to smooth out the value.
 		if (nose.score > score) {
 			fill(255, 0, 0),
 				noStroke();
@@ -159,24 +161,13 @@ function drawKeypoints() {
 				noseArrayY.shift();
 				noseY = average(noseArrayY);
 			}
-			//console.log(noseX, noseY);
-			//ellipse(RhipX, RhipY, 10, 10);
-		}
-		for (let j = 0; j < pose.keypoints.length; j++) {
-			// A keypoint is an object describing a body part (like rightArm or leftShoulder)
-			let keypoint = pose.keypoints[0];
-			// Only draw an ellipse is the pose probability is bigger than 0.2
-			if (keypoint.score > 0.2) {
-				fill(255, 0, 0);
-				noStroke();
-				//ellipse(keypoint.position.x, keypoint.position.y, 10, 10);
-			}
+
 		}
 	}
 }
 
 
-
+//function of get average value of a moving array
 function average(array) {
 	let total = 0;
 	for (let i = 0; i < array.length; i++) {
